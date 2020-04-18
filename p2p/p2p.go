@@ -76,7 +76,7 @@ func CreatePeer(proto, address string) *Peer {
 		sugar.Fatal("Not able to listen:", address, " protocol:", proto, " error:", err)
 	}
 	if port == "<nil>" || port == "" {
-		sugar.Fatal("Invalid listent port")
+		sugar.Fatal("Invalid listent port:", port)
 	}
 	p := &Peer{listener: listener,
 		bindAddress:     address,
@@ -91,44 +91,6 @@ func CreatePeer(proto, address string) *Peer {
 	}
 	sugar.Infof("Listening protocol %s bind to (%s)", proto, address)
 	return p
-}
-
-//HandleLoop peer main loop
-func (p *Peer) HandleLoop(handler func(p *Peer, data []byte)) {
-	for {
-		select {
-		case connect := <-p.NewConnections:
-			p.ActivePeers[connect] = true
-			sugar.Info("New connection:", connect.RemoteAddr(), "->", connect.LocalAddr())
-			go func() {
-				buf := make([]byte, BufferSize)
-				for {
-					nbyte, err := connect.Read(buf)
-					if err != nil {
-						p.DeadConnections <- connect
-						break
-					} else {
-						chunk := make([]byte, nbyte)
-						copy(chunk, buf[:nbyte])
-						sugar.Info("Received data:", connect.RemoteAddr(), "->", connect.LocalAddr())
-						p.DataChannel <- chunk
-					}
-				}
-			}()
-		case deadConnect := <-p.DeadConnections:
-			sugar.Info("Close connect", deadConnect.RemoteAddr(), "->", deadConnect.LocalAddr())
-			err := deadConnect.Close()
-			if err != nil {
-				sugar.Error("Could not close connect:", err)
-			}
-			delete(p.ActivePeers, deadConnect)
-		case receivedData := <-p.DataChannel:
-			sugar.Debugf("Received  %d bytes of data", len(receivedData))
-			logger.HexDump("Dumped data:", receivedData)
-			// Trigger handler
-			handler(p, receivedData)
-		}
-	}
 }
 
 //Connect to another peer

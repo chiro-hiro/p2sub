@@ -1,5 +1,7 @@
 #!/usr/bin/env sh
 
+go mod tidy
+
 case $1 in
   
   build)
